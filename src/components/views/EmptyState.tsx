@@ -1,0 +1,34 @@
+interface EmptyStateProps {
+    onUpload: () => void;
+}
+
+export default function EmptyState({ onUpload }: EmptyStateProps) {
+    return (
+        <div className="flex h-full flex-col items-center justify-center">
+            <button
+                onClick={onUpload}
+                className="group flex flex-col items-center gap-4 p-12 transition-all hover:scale-105"
+            >
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100 group-hover:bg-blue-100 group-hover:ring-blue-200">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                        className="h-10 w-10"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 4.5v15m7.5-7.5h-15"
+                        />
+                    </svg>
+                </div>
+                <span className="text-xl font-medium text-gray-600 group-hover:text-gray-900">
+                    Upload Pictures
+                </span>
+            </button>
+        </div>
+    );
+}
