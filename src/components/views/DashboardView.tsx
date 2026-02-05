@@ -24,9 +24,9 @@ export default function DashboardView({ onViewDoc }: DashboardViewProps) {
     ].filter(evt => documents.some(d => d.id === evt.docRef)); // Only showing events with valid docs
 
     return (
-        <div className="flex h-full flex-col gap-8 overflow-y-auto p-8">
+        <div className="flex h-full flex-col gap-8 overflow-hidden p-8">
             {/* Events Radar Section */}
-            <section>
+            <section className="shrink-0">
                 <div className="mb-4 flex items-center justify-between">
                     <h2 className="text-lg font-bold text-gray-900">Events Radar</h2>
                     <span className="text-xs text-gray-400">Click an event → full screen view</span>
@@ -44,9 +44,9 @@ export default function DashboardView({ onViewDoc }: DashboardViewProps) {
             {/* Documents Layout - Main List + Detail Placeholder */}
             <section className="flex flex-1 gap-6 min-h-0">
                 {/* Document List (Left) */}
-                <div className="w-1/3 flex flex-col gap-4">
-                    <h2 className="text-lg font-bold text-gray-900">Documents</h2>
-                    <div className="flex flex-col gap-3 h-full overflow-y-auto pr-2">
+                <div className="w-1/3 flex flex-col gap-4 overflow-hidden">
+                    <h2 className="text-lg font-bold text-gray-900 shrink-0">Documents</h2>
+                    <div className="flex flex-col gap-3 flex-1 overflow-y-auto pr-2">
                         {documents.map((doc) => (
                             <div key={doc.id} onClick={() => setSelectedDocId(doc.id)} className={selectedDocId === doc.id ? "ring-2 ring-blue-500 rounded-xl" : ""}>
                                 <DocumentCard {...doc} />

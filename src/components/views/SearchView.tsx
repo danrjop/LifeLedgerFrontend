@@ -30,8 +30,15 @@ export default function SearchView({ query, onBack, onViewDoc }: SearchViewProps
             answer = "You have spent a total of **$32.20** on food in the new year. This includes purchases at McDonald's ($26.60 (incl. tax)) and some snacks at Asia Mart.";
             candidateIds = ["doc_receipt_2", "doc_receipt_4"];
             bboxes = {
-                "doc_receipt_2": [{ x: 10, y: 75, width: 30, height: 10, label: "Total" }, { x: 10, y: 20, width: 50, height: 10, label: "Merchant" }], // McDonald's
-                "doc_receipt_4": [{ x: 5, y: 80, width: 40, height: 8, label: "Total" }] // Asia Mart
+                // SROIE X51006619772 (McDonalds)
+                "doc_receipt_2": [
+                    { x: 75, y: 78, width: 14, height: 3, label: "Total" },
+                    { x: 10, y: 25, width: 70, height: 3, label: "Merchant" }
+                ],
+                // SROIE X51005268472 (Asia Mart)
+                "doc_receipt_4": [
+                    { x: 72, y: 74, width: 10, height: 2, label: "Total" }
+                ]
             };
         } else if (query.includes("home supplies")) {
             answer = "You have spent **$126.55** on home supplies. This includes a hardware purchase at Zheng Hui ($112.45) and office supplies at Sam Sam Trading ($14.10).";
@@ -45,11 +52,11 @@ export default function SearchView({ query, onBack, onViewDoc }: SearchViewProps
             candidateIds = ["doc_sub_azure", "doc_sub_adobe"];
             bboxes = {
                 "doc_sub_azure": [
-                    { x: 10, y: 30, width: 40, height: 10, label: "Next Payment" },
-                    { x: 60, y: 30, width: 20, height: 10, label: "Amount" }
+                    { x: 10, y: 32, width: 40, height: 5, label: "Next Payment" },
+                    { x: 60, y: 32, width: 20, height: 5, label: "Amount" }
                 ],
                 "doc_sub_adobe": [
-                    { x: 15, y: 40, width: 35, height: 8, label: "Renewal Date" }
+                    { x: 15, y: 42, width: 35, height: 4, label: "Renewal Date" }
                 ]
             };
         } else if (query.includes("fine")) {
@@ -57,9 +64,9 @@ export default function SearchView({ query, onBack, onViewDoc }: SearchViewProps
             candidateIds = ["doc_ticket_rome"];
             bboxes = {
                 "doc_ticket_rome": [
-                    { x: 20, y: 25, width: 30, height: 5, label: "Date" },
-                    { x: 55, y: 60, width: 20, height: 5, label: "Amount" },
-                    { x: 20, y: 45, width: 40, height: 5, label: "Infraction" }
+                    { x: 68, y: 24, width: 25, height: 4, label: "Date" },
+                    { x: 60, y: 65, width: 15, height: 4, label: "Amount" },
+                    { x: 15, y: 45, width: 50, height: 6, label: "Infraction" }
                 ]
             };
         } else {
@@ -116,7 +123,7 @@ export default function SearchView({ query, onBack, onViewDoc }: SearchViewProps
                 {/* Left: Candidates List */}
                 <div className="w-1/3 flex flex-col gap-4 overflow-hidden">
                     <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide shrink-0">Evidence Sources</h2>
-                    <div className="flex flex-col gap-3 overflow-y-auto pr-2 pb-4">
+                    <div className="flex flex-col gap-3 flex-1 overflow-y-auto pr-2 pb-4">
                         {candidates.map((doc) => (
                             <div
                                 key={doc.id}
