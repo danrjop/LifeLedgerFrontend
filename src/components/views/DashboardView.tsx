@@ -3,7 +3,11 @@ import EventCard from "../ui/EventCard";
 import DocumentCard from "../ui/DocumentCard";
 import { documents } from "@/data/documents";
 
-export default function DashboardView() {
+interface DashboardViewProps {
+    onViewDoc: (id: string) => void;
+}
+
+export default function DashboardView({ onViewDoc }: DashboardViewProps) {
     const [selectedDocId, setSelectedDocId] = useState(documents[0]?.id);
 
     const selectedDoc = documents.find(d => d.id === selectedDocId) || documents[0];
@@ -17,7 +21,7 @@ export default function DashboardView() {
         { date: "2026-02-12", title: "Adobe renewal", docRef: "doc_sub_adobe" },
         { date: "2026-02-15", title: "Azure auto-pay", docRef: "doc_sub_azure" },
         { date: "2026-02-20", title: "Ticket dispute due", docRef: "doc_ticket_rome" },
-    ];
+    ].filter(evt => documents.some(d => d.id === evt.docRef)); // Only showing events with valid docs
 
     return (
         <div className="flex h-full flex-col gap-8 overflow-y-auto p-8">
@@ -25,12 +29,14 @@ export default function DashboardView() {
             <section>
                 <div className="mb-4 flex items-center justify-between">
                     <h2 className="text-lg font-bold text-gray-900">Events Radar</h2>
-                    <span className="text-xs text-gray-400">Click an event → jump to source document</span>
+                    <span className="text-xs text-gray-400">Click an event → full screen view</span>
                 </div>
 
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
                     {events.map((evt, idx) => (
-                        <EventCard key={idx} {...evt} />
+                        <div key={idx} onClick={() => onViewDoc(evt.docRef)} className="cursor-pointer transition-transform hover:scale-105 active:scale-95">
+                            <EventCard {...evt} />
+                        </div>
                     ))}
                 </div>
             </section>
@@ -59,8 +65,8 @@ export default function DashboardView() {
                                     <p className="text-gray-500">{selectedDoc.type} • {selectedDoc.totalValue} • {selectedDoc.primaryDate}</p>
                                 </div>
                                 <span className={`rounded-md px-3 py-1 text-xs font-medium ${selectedDoc.type === "Receipt" ? "bg-green-100 text-green-700" :
-                                        selectedDoc.type === "Subscription" ? "bg-purple-100 text-purple-700" :
-                                            "bg-red-100 text-red-700"
+                                    selectedDoc.type === "Subscription" ? "bg-purple-100 text-purple-700" :
+                                        "bg-red-100 text-red-700"
                                     }`}>
                                     {selectedDoc.type}
                                 </span>
@@ -130,10 +136,12 @@ export default function DashboardView() {
                             )}
 
                             {/* Evidence Placeholder */}
-                            <div className="w-full h-64 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden relative">
+                            <div className="w-full h-64 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden relative cursor-zoom-in group" onClick={() => onViewDoc(selectedDoc.id)}>
                                 <img src={selectedDoc.fileUrl} alt="Evidence" className="w-full h-full object-contain" />
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-md">Evidence View</span>
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors">
+                                    <span className="bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
+                                        Click to Enlarge
+                                    </span>
                                 </div>
                             </div>
                         </>

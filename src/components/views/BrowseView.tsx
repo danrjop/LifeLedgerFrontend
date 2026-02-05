@@ -4,9 +4,10 @@ import { documents } from "@/data/documents";
 
 interface BrowseViewProps {
     initialFilter?: string;
+    onViewDoc: (id: string) => void;
 }
 
-export default function BrowseView({ initialFilter = "All" }: BrowseViewProps) {
+export default function BrowseView({ initialFilter = "All", onViewDoc }: BrowseViewProps) {
     const [filter, setFilter] = useState(initialFilter);
 
     const filteredDocs = documents.filter(doc => {
@@ -64,7 +65,11 @@ export default function BrowseView({ initialFilter = "All" }: BrowseViewProps) {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredDocs.map((doc) => (
-                        <DocumentCard key={doc.id} {...doc} />
+                        <DocumentCard
+                            key={doc.id}
+                            {...doc}
+                            onClick={() => onViewDoc(doc.id)}
+                        />
                     ))}
                     {filteredDocs.length === 0 && (
                         <div className="col-span-full py-12 text-center text-gray-400">
