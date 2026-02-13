@@ -11,7 +11,7 @@ export interface DocumentMetadata {
 
 export interface Document {
     id: string;
-    type: "Receipt" | "Subscription" | "Invoice" | "Fine"; // Normalized types
+    type: "Receipt" | "Subscription" | "Invoice" | "Fine" | "Form"; // Normalized types
     fileUrl: string;
     status: "Processing" | "Needs Review" | "Done";
 
@@ -178,6 +178,38 @@ export const documents: Document[] = [
             "Infraction": "Speeding (Excess < 10km/h)",
             "Location": "Via Appia Nuova",
             "Plate": "AB 123 CD"
+        }
+    },
+
+    // --- FORMS ---
+    {
+        id: "doc_form_tax",
+        type: "Form",
+        primaryEntity: "IRS W-2 Wage Statement",
+        secondaryEntity: "Tax Year 2025",
+        primaryDate: getRelativeDate(-30),
+        totalValue: "$62,400.00",
+        status: "Done",
+        fileUrl: "/documents/form_w2.png",
+        metadata: {
+            "Employer": "Acme Corp",
+            "EIN": "12-3456789",
+            "Filing Status": "Single"
+        }
+    },
+    {
+        id: "doc_form_insurance",
+        type: "Form",
+        primaryEntity: "Health Insurance Enrollment",
+        secondaryEntity: "Open Enrollment 2026",
+        primaryDate: getRelativeDate(-21),
+        totalValue: "$385.00/mo",
+        status: "Needs Review",
+        fileUrl: "/documents/form_insurance.png",
+        metadata: {
+            "Provider": "Blue Cross Blue Shield",
+            "Plan": "Gold PPO",
+            "Deadline": getRelativeDate(10)
         }
     }
 ];

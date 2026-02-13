@@ -3,67 +3,54 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "aws-amplify/auth";
+import { resetPassword } from "aws-amplify/auth";
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isFormValid = username.trim() !== "" && password.trim() !== "";
+  const isFormValid = username.trim() !== "";
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
     setError("");
-    setIsLoggingIn(true);
+    setIsSubmitting(true);
 
     try {
-      const result = await signIn({
-        username: username.trim(),
-        password: password,
-      });
+      const result = await resetPassword({ username: username.trim() });
 
-      if (result.isSignedIn) {
-        router.push("/dashboard");
-      } else if (result.nextStep.signInStep === "CONFIRM_SIGN_UP") {
+      if (
+        result.nextStep.resetPasswordStep ===
+        "CONFIRM_RESET_PASSWORD_WITH_CODE"
+      ) {
         router.push(
-          `/verify-email?username=${encodeURIComponent(username.trim())}`
+          `/reset-password?username=${encodeURIComponent(username.trim())}`
         );
       }
     } catch (err: unknown) {
-      setIsLoggingIn(false);
+      setIsSubmitting(false);
       if (err instanceof Error) {
         switch (err.name) {
           case "UserNotFoundException":
-          case "NotAuthorizedException":
-            setError("Incorrect username or password.");
-            break;
-          case "UserNotConfirmedException":
+            // Don't reveal whether user exists — still redirect
             router.push(
-              `/verify-email?username=${encodeURIComponent(username.trim())}`
+              `/reset-password?username=${encodeURIComponent(username.trim())}`
             );
-            return;
+            break;
+          case "LimitExceededException":
+            setError("Too many attempts. Please wait before trying again.");
+            break;
           default:
-            setError(err.message || "An unexpected error occurred.");
+            setError(err.message || "Something went wrong.");
         }
       } else {
         setError("An unexpected error occurred.");
       }
     }
   };
-
-  if (isLoggingIn) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-bg-primary">
-        <p className="text-body-lg text-fg-secondary">
-          Logging in via AWS Cognito...
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen flex-col bg-bg-primary">
@@ -77,17 +64,22 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      {/* Login Box — centered */}
+      {/* Forgot Password Box — centered */}
       <div className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="w-full max-w-sm">
           <h1
             className="font-serif text-fg-primary tracking-heading text-center"
             style={{ fontSize: "clamp(2.5rem, 2rem + 2vw, 4rem)" }}
           >
-            Log in to LifeLedger
+            Forgot password
           </h1>
 
-          <form onSubmit={handleLogin} className="mt-8 space-y-5">
+          <p className="mt-3 text-center text-sm text-fg-secondary">
+            Enter your username and we&apos;ll send a verification code to your
+            email to reset your password.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
               <div className="rounded-xl bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
                 {error}
@@ -113,53 +105,23 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Password */}
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-fg-secondary mb-1.5"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                className="w-full rounded-xl bg-bg-primary border border-bg-tertiary px-4 py-2.5 text-fg-primary placeholder:text-fg-tertiary transition-colors duration-200 focus-visible:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-light"
-              />
-            </div>
-
-            {/* Forgot Password Link */}
-            <div className="flex justify-end">
-              <Link
-                href="/forgot-password"
-                className="text-sm text-accent hover:text-accent-hover transition-colors duration-200"
-              >
-                Forgot password?
-              </Link>
-            </div>
-
-            {/* Login Button */}
+            {/* Submit Button */}
             <button
               type="submit"
-              disabled={!isFormValid}
+              disabled={!isFormValid || isSubmitting}
               className="w-full rounded-xl px-5 py-2.5 font-medium transition-all duration-200 ease-out min-h-11 flex items-center justify-center bg-accent text-accent-fg hover:bg-accent-hover motion-safe:hover:scale-[1.02] motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              Log In
+              {isSubmitting ? "Sending..." : "Send Reset Code"}
             </button>
           </form>
 
-          {/* Sign Up Link */}
+          {/* Back to Login */}
           <p className="mt-6 text-center text-sm text-fg-tertiary">
-            Don&apos;t have an account?{" "}
             <Link
-              href="/signup"
+              href="/login"
               className="text-accent hover:text-accent-hover font-medium transition-colors duration-200"
             >
-              Sign Up
+              Back to login
             </Link>
           </p>
         </div>

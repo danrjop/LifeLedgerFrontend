@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
-import DashboardSidebar from "@/components/layout/DashboardSidebar";
-import DashboardHeader from "@/components/layout/DashboardHeader";
+import { useAuth } from "@/lib/auth-context";
 
 export default function DashboardLayout({
   children,
@@ -12,25 +10,19 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [checked, setChecked] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    if (!isLoading && !isAuthenticated) {
       router.replace("/login");
-    } else {
-      setChecked(true);
     }
-  }, [router]);
+  }, [isLoading, isAuthenticated, router]);
 
-  if (!checked) return null;
+  if (isLoading || !isAuthenticated) return null;
 
   return (
-    <div className="flex h-screen bg-bg-primary">
-      <DashboardSidebar />
-      <div className="flex flex-1 flex-col min-w-0">
-        <DashboardHeader />
-        <main className="flex-1 overflow-auto p-8">{children}</main>
-      </div>
+    <div className="h-screen bg-bg-primary">
+      {children}
     </div>
   );
 }

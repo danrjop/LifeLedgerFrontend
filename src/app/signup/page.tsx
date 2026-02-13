@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { signUp } from "aws-amplify/auth";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -10,6 +11,8 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verifyPassword, setVerifyPassword] = useState("");
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [error, setError] = useState("");
 
   const isFormValid =
     username.trim() !== "" &&
@@ -17,11 +20,69 @@ export default function SignUpPage() {
     password.trim() !== "" &&
     verifyPassword.trim() !== "";
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
-    router.push("/signing-up");
+    setError("");
+
+    if (password !== verifyPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setIsSigningUp(true);
+
+    try {
+      const result = await signUp({
+        username: username.trim(),
+        password: password,
+        options: {
+          userAttributes: {
+            email: email.trim(),
+          },
+        },
+      });
+
+      if (result.isSignUpComplete) {
+        router.push("/login");
+      } else if (result.nextStep.signUpStep === "CONFIRM_SIGN_UP") {
+        router.push(
+          `/verify-email?username=${encodeURIComponent(username.trim())}`
+        );
+      }
+    } catch (err: unknown) {
+      setIsSigningUp(false);
+      if (err instanceof Error) {
+        switch (err.name) {
+          case "UsernameExistsException":
+            setError("An account with this username already exists.");
+            break;
+          case "InvalidPasswordException":
+            setError(
+              "Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, numbers, and symbols."
+            );
+            break;
+          case "InvalidParameterException":
+            setError("Please check your input and try again.");
+            break;
+          default:
+            setError(err.message || "An unexpected error occurred.");
+        }
+      } else {
+        setError("An unexpected error occurred.");
+      }
+    }
   };
+
+  if (isSigningUp) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg-primary">
+        <p className="text-body-lg text-fg-secondary">
+          Signing up via AWS Cognito...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-bg-primary">
@@ -46,9 +107,18 @@ export default function SignUpPage() {
           </h1>
 
           <form onSubmit={handleSignUp} className="mt-8 space-y-5">
+            {error && (
+              <div className="rounded-xl bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
+                {error}
+              </div>
+            )}
+
             {/* Username */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-fg-secondary mb-1.5">
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-fg-secondary mb-1.5"
+              >
                 Username
               </label>
               <input
@@ -64,7 +134,10 @@ export default function SignUpPage() {
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-fg-secondary mb-1.5">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-fg-secondary mb-1.5"
+              >
                 Email
               </label>
               <input
@@ -80,7 +153,10 @@ export default function SignUpPage() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-fg-secondary mb-1.5">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-fg-secondary mb-1.5"
+              >
                 Password
               </label>
               <input
@@ -96,7 +172,10 @@ export default function SignUpPage() {
 
             {/* Verify Password */}
             <div>
-              <label htmlFor="verify-password" className="block text-sm font-medium text-fg-secondary mb-1.5">
+              <label
+                htmlFor="verify-password"
+                className="block text-sm font-medium text-fg-secondary mb-1.5"
+              >
                 Verify Password
               </label>
               <input

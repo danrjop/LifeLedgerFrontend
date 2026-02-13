@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
+import { CookieConsentProvider } from "@/lib/cookie-consent-context";
+import AmplifyProvider from "@/components/providers/AmplifyProvider";
+import { AuthProvider } from "@/lib/auth-context";
+import CookieConsent from "@/components/ui/CookieConsent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +37,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased bg-bg-primary text-fg-primary`}
       >
-        {children}
+        <CookieConsentProvider>
+          <CookieConsent />
+          <AmplifyProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </AmplifyProvider>
+        </CookieConsentProvider>
       </body>
     </html>
   );

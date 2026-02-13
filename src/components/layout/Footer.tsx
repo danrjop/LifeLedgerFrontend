@@ -44,12 +44,6 @@ export default function Footer() {
                 >
                   Login
                 </Link>
-                <Link
-                  href="/dashboard"
-                  className="text-sm text-fg-secondary hover:text-fg-primary transition-colors duration-200"
-                >
-                  Dashboard
-                </Link>
               </nav>
             </div>
           </div>

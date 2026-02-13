@@ -1,15 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { logout } from "@/lib/auth";
+import { signOut } from "aws-amplify/auth";
 import { useRouter, usePathname } from "next/navigation";
 
-export default function DashboardSidebar() {
+export type FilterType = "Receipt" | "Subscription" | "Form";
+
+const FILTERS: { type: FilterType; label: string }[] = [
+  { type: "Receipt", label: "Receipts" },
+  { type: "Subscription", label: "Subscriptions" },
+  { type: "Form", label: "Forms" },
+];
+
+interface DashboardSidebarProps {
+  activeFilters: Set<FilterType>;
+  onFilterToggle: (filter: FilterType) => void;
+}
+
+export default function DashboardSidebar({ activeFilters, onFilterToggle }: DashboardSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
     router.push("/");
   };
 
@@ -17,26 +34,78 @@ export default function DashboardSidebar() {
 
   return (
     <aside className="flex w-60 flex-col border-r border-bg-tertiary/50 bg-bg-secondary">
+      {/* Logo */}
       <div className="px-6 py-5 text-lg font-semibold text-fg-primary tracking-tight">
         LifeLedger
       </div>
-      <nav className="flex flex-1 flex-col gap-1 px-3">
+
+      <nav className="flex flex-col gap-1 px-3">
         <Link
           href="/dashboard"
-          className={`rounded-xl px-3 py-2 transition-colors duration-200 ${
+          className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-colors duration-200 ${
             isActive("/dashboard")
               ? "bg-accent-light text-accent font-medium"
               : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
           }`}
         >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+          </svg>
           Dashboard
         </Link>
       </nav>
+
+      {/* Filters */}
+      <div className="mt-6 px-3">
+        <h3 className="px-3 mb-2 text-xs font-bold text-fg-tertiary uppercase tracking-wider">
+          Filters
+        </h3>
+        <div className="flex flex-col gap-1">
+          {FILTERS.map(({ type, label }) => {
+            const isFilterActive = activeFilters.has(type);
+            return (
+              <button
+                key={type}
+                onClick={() => onFilterToggle(type)}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors duration-200 min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                  isFilterActive
+                    ? "bg-accent-light text-accent font-medium"
+                    : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
+                }`}
+              >
+                {/* Checkbox indicator */}
+                <span
+                  className={`flex items-center justify-center w-4 h-4 rounded border transition-colors duration-200 ${
+                    isFilterActive
+                      ? "bg-accent border-accent"
+                      : "border-fg-tertiary"
+                  }`}
+                >
+                  {isFilterActive && (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-3 h-3 text-accent-fg">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                  )}
+                </span>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Logout */}
       <div className="border-t border-bg-tertiary/50 p-3">
         <button
           onClick={handleLogout}
-          className="w-full rounded-xl px-3 py-2 text-left text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary transition-colors duration-200 min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary transition-colors duration-200 min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+          </svg>
           Logout
         </button>
       </div>
