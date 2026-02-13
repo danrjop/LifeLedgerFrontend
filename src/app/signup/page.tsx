@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signUp } from "aws-amplify/auth";
+import { signUpAction } from "@/lib/auth-actions";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -48,46 +48,17 @@ export default function SignUpPage() {
 
     setIsSigningUp(true);
 
-    try {
-      const result = await signUp({
-        username: username.trim(),
-        password: password,
-        options: {
-          userAttributes: {
-            email: email.trim(),
-            preferred_username: username.trim(),
-          },
-        },
-      });
+    const result = await signUpAction(username.trim(), password, email.trim());
 
-      if (result.isSignUpComplete) {
-        router.push("/login");
-      } else if (result.nextStep.signUpStep === "CONFIRM_SIGN_UP") {
-        router.push(
-          `/verify-email?username=${encodeURIComponent(username.trim())}`
-        );
-      }
-    } catch (err: unknown) {
+    if (result.success && result.nextStep === "CONFIRM_SIGN_UP") {
+      router.push(
+        `/verify-email?username=${encodeURIComponent(username.trim())}`
+      );
+    } else if (result.success) {
+      router.push("/login");
+    } else {
       setIsSigningUp(false);
-      if (err instanceof Error) {
-        switch (err.name) {
-          case "UsernameExistsException":
-            setError("An account with this username already exists.");
-            break;
-          case "InvalidPasswordException":
-            setError(
-              "Password does not meet the requirements listed below."
-            );
-            break;
-          case "InvalidParameterException":
-            setError(err.message || "Please check your input and try again.");
-            break;
-          default:
-            setError(err.message || "An unexpected error occurred.");
-        }
-      } else {
-        setError("An unexpected error occurred.");
-      }
+      setError(result.error || "An unexpected error occurred.");
     }
   };
 

@@ -8,12 +8,17 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { getCurrentUser, type AuthUser } from "aws-amplify/auth";
-import { Hub } from "aws-amplify/utils";
+import { getSessionAction } from "@/lib/auth-actions";
 import { useCookieConsent } from "@/lib/cookie-consent-context";
 
+interface User {
+  userId: string;
+  username: string;
+  email?: string;
+}
+
 interface AuthContextType {
-  user: AuthUser | null;
+  user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   checkAuth: () => Promise<void>;
@@ -28,13 +33,17 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { hasConsented } = useCookieConsent();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
+      const result = await getSessionAction();
+      if (result.success && result.user) {
+        setUser(result.user);
+      } else {
+        setUser(null);
+      }
     } catch {
       setUser(null);
     } finally {
@@ -48,31 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false);
     }
-  }, [hasConsented, checkAuth]);
-
-  useEffect(() => {
-    if (!hasConsented) return;
-
-    const unsubscribe = Hub.listen("auth", ({ payload }) => {
-      switch (payload.event) {
-        case "signedIn":
-          checkAuth();
-          break;
-        case "signedOut":
-          setUser(null);
-          setIsLoading(false);
-          break;
-        case "tokenRefresh":
-          checkAuth();
-          break;
-        case "tokenRefresh_failure":
-          setUser(null);
-          setIsLoading(false);
-          break;
-      }
-    });
-
-    return unsubscribe;
   }, [hasConsented, checkAuth]);
 
   return (

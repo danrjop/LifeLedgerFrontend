@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { confirmResetPassword } from "aws-amplify/auth";
+import { confirmResetPasswordAction } from "@/lib/auth-actions";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -34,38 +34,17 @@ function ResetPasswordForm() {
 
     setIsSubmitting(true);
 
-    try {
-      await confirmResetPassword({
-        username: username.trim(),
-        confirmationCode: code.trim(),
-        newPassword: newPassword,
-      });
+    const result = await confirmResetPasswordAction(
+      username.trim(),
+      code.trim(),
+      newPassword
+    );
 
+    if (result.success) {
       router.push("/login");
-    } catch (err: unknown) {
+    } else {
       setIsSubmitting(false);
-      if (err instanceof Error) {
-        switch (err.name) {
-          case "CodeMismatchException":
-            setError("Invalid verification code.");
-            break;
-          case "ExpiredCodeException":
-            setError("Code has expired. Please request a new one.");
-            break;
-          case "InvalidPasswordException":
-            setError(
-              "Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, numbers, and symbols."
-            );
-            break;
-          case "LimitExceededException":
-            setError("Too many attempts. Please wait.");
-            break;
-          default:
-            setError(err.message || "Password reset failed.");
-        }
-      } else {
-        setError("An unexpected error occurred.");
-      }
+      setError(result.error || "Password reset failed.");
     }
   };
 

@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "aws-amplify/auth";
+import { signInAction } from "@/lib/auth-actions";
+import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { checkAuth } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -31,38 +33,18 @@ export default function LoginPage() {
     setError("");
     setIsLoggingIn(true);
 
-    try {
-      const result = await signIn({
-        username: username.trim(),
-        password: password,
-      });
+    const result = await signInAction(username.trim(), password);
 
-      if (result.isSignedIn) {
-        router.push("/dashboard");
-      } else if (result.nextStep.signInStep === "CONFIRM_SIGN_UP") {
-        router.push(
-          `/verify-email?username=${encodeURIComponent(username.trim())}`
-        );
-      }
-    } catch (err: unknown) {
+    if (result.success) {
+      await checkAuth();
+      router.push("/dashboard");
+    } else if (result.nextStep === "CONFIRM_SIGN_UP") {
+      router.push(
+        `/verify-email?username=${encodeURIComponent(username.trim())}`
+      );
+    } else {
       setIsLoggingIn(false);
-      if (err instanceof Error) {
-        switch (err.name) {
-          case "UserNotFoundException":
-          case "NotAuthorizedException":
-            setError("Incorrect username or password.");
-            break;
-          case "UserNotConfirmedException":
-            router.push(
-              `/verify-email?username=${encodeURIComponent(username.trim())}`
-            );
-            return;
-          default:
-            setError(err.message || "An unexpected error occurred.");
-        }
-      } else {
-        setError("An unexpected error occurred.");
-      }
+      setError(result.error || "An unexpected error occurred.");
     }
   };
 

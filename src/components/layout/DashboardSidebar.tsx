@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { signOut } from "aws-amplify/auth";
+import { signOutAction } from "@/lib/auth-actions";
 import { useRouter, usePathname } from "next/navigation";
 
 export type FilterType = "Receipt" | "Subscription" | "Form";
@@ -22,11 +22,7 @@ export default function DashboardSidebar({ activeFilters, onFilterToggle }: Dash
   const pathname = usePathname();
 
   const handleLogout = async () => {
-    try {
-      await signOut();
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
+    await signOutAction();
     router.push("/");
   };
 

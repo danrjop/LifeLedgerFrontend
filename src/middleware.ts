@@ -6,16 +6,9 @@ const authRoutes = ["/login", "/signup"];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check for Cognito auth token cookies (set by Amplify with ssr: true)
-  const cognitoTokenCookie = request.cookies
-    .getAll()
-    .find(
-      (cookie) =>
-        cookie.name.includes("CognitoIdentityServiceProvider") &&
-        cookie.name.endsWith(".idToken")
-    );
-
-  const isAuthenticated = !!cognitoTokenCookie;
+  // Check for our HttpOnly id token cookie
+  const idToken = request.cookies.get("ll_id_token");
+  const isAuthenticated = !!idToken?.value;
 
   // Protect dashboard routes — redirect to login if not authenticated
   if (protectedRoutes.some((route) => pathname.startsWith(route))) {

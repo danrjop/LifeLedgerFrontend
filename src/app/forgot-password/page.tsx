@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { resetPassword } from "aws-amplify/auth";
+import { forgotPasswordAction } from "@/lib/auth-actions";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -19,36 +19,15 @@ export default function ForgotPasswordPage() {
     setError("");
     setIsSubmitting(true);
 
-    try {
-      const result = await resetPassword({ username: username.trim() });
+    const result = await forgotPasswordAction(username.trim());
 
-      if (
-        result.nextStep.resetPasswordStep ===
-        "CONFIRM_RESET_PASSWORD_WITH_CODE"
-      ) {
-        router.push(
-          `/reset-password?username=${encodeURIComponent(username.trim())}`
-        );
-      }
-    } catch (err: unknown) {
+    if (result.success) {
+      router.push(
+        `/reset-password?username=${encodeURIComponent(username.trim())}`
+      );
+    } else {
       setIsSubmitting(false);
-      if (err instanceof Error) {
-        switch (err.name) {
-          case "UserNotFoundException":
-            // Don't reveal whether user exists — still redirect
-            router.push(
-              `/reset-password?username=${encodeURIComponent(username.trim())}`
-            );
-            break;
-          case "LimitExceededException":
-            setError("Too many attempts. Please wait before trying again.");
-            break;
-          default:
-            setError(err.message || "Something went wrong.");
-        }
-      } else {
-        setError("An unexpected error occurred.");
-      }
+      setError(result.error || "Something went wrong.");
     }
   };
 

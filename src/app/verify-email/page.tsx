@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { confirmSignUp, resendSignUpCode } from "aws-amplify/auth";
+import { confirmSignUpAction, resendCodeAction } from "@/lib/auth-actions";
 
 function VerifyEmailForm() {
   const router = useRouter();
@@ -24,49 +24,27 @@ function VerifyEmailForm() {
     setResendMessage("");
     setIsVerifying(true);
 
-    try {
-      const result = await confirmSignUp({
-        username: username.trim(),
-        confirmationCode: code.trim(),
-      });
+    const result = await confirmSignUpAction(username.trim(), code.trim());
 
-      if (result.isSignUpComplete) {
-        router.push("/login");
-      }
-    } catch (err: unknown) {
+    if (result.success) {
+      router.push("/login");
+    } else {
       setIsVerifying(false);
-      if (err instanceof Error) {
-        switch (err.name) {
-          case "CodeMismatchException":
-            setError("Invalid verification code. Please try again.");
-            break;
-          case "ExpiredCodeException":
-            setError("Verification code has expired. Request a new one.");
-            break;
-          case "LimitExceededException":
-            setError("Too many attempts. Please wait and try again.");
-            break;
-          default:
-            setError(err.message || "Verification failed.");
-        }
-      } else {
-        setError("An unexpected error occurred.");
-      }
+      setError(result.error || "Verification failed.");
     }
   };
 
   const handleResendCode = async () => {
     setError("");
     setResendMessage("");
-    try {
-      await resendSignUpCode({ username: username.trim() });
+    const result = await resendCodeAction(username.trim());
+
+    if (result.success) {
       setResendMessage(
         "A new verification code has been sent to your email."
       );
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      }
+    } else {
+      setError(result.error || "Failed to resend code.");
     }
   };
 
