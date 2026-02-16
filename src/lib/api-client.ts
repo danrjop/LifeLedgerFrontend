@@ -54,9 +54,11 @@ export interface UploadAndProcessResponse {
   message: string;
 }
 
+export type DocumentType = "Receipt" | "Subscription" | "Invoice" | "Fine" | "Form";
+
 export interface Document {
   id: string;
-  type: string;
+  type: DocumentType;
   fileUrl: string;
   status: string;
   primaryEntity: string;
