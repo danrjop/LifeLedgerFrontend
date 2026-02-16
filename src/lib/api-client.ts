@@ -55,12 +55,13 @@ export interface UploadAndProcessResponse {
 }
 
 export type DocumentType = "Receipt" | "Subscription" | "Invoice" | "Fine" | "Form";
+export type StatusType = "Processing" | "Needs Review" | "Done";
 
 export interface Document {
   id: string;
   type: DocumentType;
   fileUrl: string;
-  status: string;
+  status: StatusType;
   primaryEntity: string;
   primaryDate: string;
   totalValue: string;
