@@ -312,6 +312,63 @@ export async function signOutAction(): Promise<AuthResult> {
   }
 }
 
+export async function getIdTokenAction(): Promise<string | null> {
+  try {
+    const { idToken, refreshToken } = await getAuthCookies();
+
+    if (!idToken) {
+      return null;
+    }
+
+    const payload = decodeJwtPayload(idToken);
+    const exp = payload.exp as number;
+    const now = Math.floor(Date.now() / 1000);
+
+    // Token is still valid
+    if (exp > now) {
+      return idToken;
+    }
+
+    // Token expired — try refresh
+    if (!refreshToken) {
+      await clearAuthCookies();
+      return null;
+    }
+
+    const username = (payload["cognito:username"] as string) || "";
+
+    try {
+      const command = new InitiateAuthCommand({
+        AuthFlow: "REFRESH_TOKEN_AUTH",
+        ClientId: getClientId(),
+        AuthParameters: {
+          REFRESH_TOKEN: refreshToken,
+          SECRET_HASH: computeSecretHash(username),
+        },
+      });
+
+      const response = await cognitoClient.send(command);
+
+      if (response.AuthenticationResult) {
+        const { IdToken, AccessToken } = response.AuthenticationResult;
+
+        if (IdToken && AccessToken) {
+          await setAuthCookies(IdToken, AccessToken, refreshToken);
+          return IdToken;
+        }
+      }
+
+      await clearAuthCookies();
+      return null;
+    } catch {
+      await clearAuthCookies();
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
 export async function getSessionAction(): Promise<AuthResult> {
   try {
     const { idToken, refreshToken } = await getAuthCookies();
