@@ -156,3 +156,24 @@ export async function deleteDocuments(
     body: JSON.stringify({ document_ids: documentIds.map(Number) }),
   });
 }
+
+export interface RadarEvent {
+  id: string;
+  type: DocumentType;
+  fileUrl: string;
+  primaryEntity: string;
+  date: string;
+  totalValue: string;
+}
+
+export interface RadarResponse {
+  events: RadarEvent[];
+  count: number;
+}
+
+/**
+ * Get upcoming events for the radar (dates within next N days).
+ */
+export async function getRadarEvents(days: number = 30): Promise<RadarResponse> {
+  return apiCall<RadarResponse>(`/radar?days=${days}`);
+}

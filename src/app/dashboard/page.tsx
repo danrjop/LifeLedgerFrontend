@@ -7,13 +7,14 @@ import EventCard from "@/components/ui/EventCard";
 import DocumentCard from "@/components/ui/DocumentCard";
 import DocumentViewer from "@/components/ui/DocumentViewer";
 import EmptyState from "@/components/views/EmptyState";
-import { uploadAndProcess, getDocuments, deleteDocuments, type Document } from "@/lib/api-client";
+import { uploadAndProcess, getDocuments, deleteDocuments, getRadarEvents, type Document, type RadarEvent } from "@/lib/api-client";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_PREFIXES = ["image/"];
 
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [radarEvents, setRadarEvents] = useState<RadarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(new Set());
@@ -23,19 +24,23 @@ export default function DashboardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load documents on mount
+  // Load documents and radar events on mount
   useEffect(() => {
-    async function loadDocuments() {
+    async function loadData() {
       try {
-        const docs = await getDocuments();
+        const [docs, radar] = await Promise.all([
+          getDocuments(),
+          getRadarEvents(30), // Next 30 days
+        ]);
         setDocuments(docs);
+        setRadarEvents(radar.events);
       } catch (error) {
-        console.error("Failed to load documents:", error);
+        console.error("Failed to load data:", error);
       } finally {
         setIsLoading(false);
       }
     }
-    loadDocuments();
+    loadData();
   }, []);
 
   const handleFilterToggle = useCallback((filter: FilterType) => {
@@ -121,16 +126,30 @@ export default function DashboardPage() {
 
     setIsUploading(true);
 
+    let uploadSucceeded = false;
     try {
       // Upload and process all files at once
       await uploadAndProcess(validFiles);
-
-      // Refresh the document list
-      const docs = await getDocuments();
-      setDocuments(docs);
+      uploadSucceeded = true;
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Upload failed. Please try again.");
+    }
+
+    // Always refresh the document list and radar (even if upload failed, to show current state)
+    try {
+      const [docs, radar] = await Promise.all([
+        getDocuments(),
+        getRadarEvents(30),
+      ]);
+      setDocuments(docs);
+      setRadarEvents(radar.events);
+    } catch (error) {
+      console.error("Failed to refresh documents:", error);
+      if (uploadSucceeded) {
+        // Upload worked but refresh failed - let user know to refresh manually
+        alert("Documents uploaded but failed to refresh. Please reload the page.");
+      }
     } finally {
       setIsUploading(false);
     }
@@ -184,27 +203,29 @@ export default function DashboardPage() {
         </DashboardHeader>
 
         <main className="flex-1 overflow-auto p-8">
-          {/* Event Radar */}
-          <section className="mb-8">
-            <h2 className="text-display font-semibold text-fg-primary tracking-heading mb-4">
-              Event Radar
-            </h2>
-            <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2">
-              {documents.map((doc) => (
-                <button
-                  key={doc.id}
-                  onClick={() => setViewerDocId(doc.id)}
-                  className="flex-shrink-0 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent rounded-2xl"
-                >
-                  <EventCard
-                    date={doc.primaryDate}
-                    title={doc.primaryEntity}
-                    docRef={doc.id}
-                  />
-                </button>
-              ))}
-            </div>
-          </section>
+          {/* Event Radar - Only show if there are upcoming events */}
+          {radarEvents.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-display font-semibold text-fg-primary tracking-heading mb-4">
+                Event Radar
+              </h2>
+              <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2">
+                {radarEvents.map((event) => (
+                  <button
+                    key={event.id}
+                    onClick={() => setViewerDocId(event.id)}
+                    className="flex-shrink-0 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent rounded-2xl"
+                  >
+                    <EventCard
+                      date={event.date}
+                      title={event.primaryEntity}
+                      docRef={event.id}
+                    />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Main Content Area */}
           <section>
