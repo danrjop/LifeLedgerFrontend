@@ -7,60 +7,40 @@ import EventCard from "@/components/ui/EventCard";
 import DocumentCard from "@/components/ui/DocumentCard";
 import DocumentViewer from "@/components/ui/DocumentViewer";
 import EmptyState from "@/components/views/EmptyState";
-import { documents } from "@/data/documents";
-
-interface UploadedPhoto {
-  id: string;
-  name: string;
-  url: string;
-  s3Key: string;
-  uploadedAt: string;
-  status: "uploading" | "uploaded" | "failed";
-}
+import { uploadAndProcess, getDocuments, deleteDocuments, getRadarEvents, type Document, type RadarEvent } from "@/lib/api-client";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_PREFIXES = ["image/"];
 
 export default function DashboardPage() {
-  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [radarEvents, setRadarEvents] = useState<RadarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(new Set());
   const [viewerDocId, setViewerDocId] = useState<string | null>(null);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load previously uploaded photos on mount
+  // Load documents and radar events on mount
   useEffect(() => {
-    async function loadUploads() {
+    async function loadData() {
       try {
-        const res = await fetch("/api/uploads");
-        if (!res.ok) return;
-        const data = await res.json();
-        setUploadedPhotos(
-          data.map((item: { id: string; filename: string; url: string; s3Key: string; createdAt: string }) => ({
-            id: item.id,
-            name: item.filename,
-            url: item.url,
-            s3Key: item.s3Key,
-            uploadedAt: item.createdAt.split("T")[0],
-            status: "uploaded" as const,
-          }))
-        );
+        const [docs, radar] = await Promise.all([
+          getDocuments(),
+          getRadarEvents(30), // Next 30 days
+        ]);
+        setDocuments(docs);
+        setRadarEvents(radar.events);
       } catch (error) {
-        console.error("Failed to load uploads:", error);
+        console.error("Failed to load data:", error);
+      } finally {
+        setIsLoading(false);
       }
     }
-    loadUploads();
-  }, []);
-
-  // Clean up blob URLs when component unmounts
-  useEffect(() => {
-    return () => {
-      uploadedPhotos.forEach((photo) => {
-        if (photo.url.startsWith("blob:")) {
-          URL.revokeObjectURL(photo.url);
-        }
-      });
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadData();
   }, []);
 
   const handleFilterToggle = useCallback((filter: FilterType) => {
@@ -78,6 +58,46 @@ export default function DashboardPage() {
   const triggerUpload = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  const toggleSelectMode = useCallback(() => {
+    setIsSelectMode((prev) => !prev);
+    setSelectedIds(new Set()); // Clear selection when toggling
+  }, []);
+
+  const handleSelectDocument = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedIds.size} document(s)? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteDocuments(Array.from(selectedIds));
+      // Remove deleted documents from state
+      setDocuments((prev) => prev.filter((doc) => !selectedIds.has(doc.id)));
+      setSelectedIds(new Set());
+      setIsSelectMode(false);
+    } catch (error) {
+      console.error("Delete failed:", error);
+      alert("Failed to delete documents. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [selectedIds]);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -104,73 +124,54 @@ export default function DashboardPage() {
     e.target.value = "";
     if (validFiles.length === 0) return;
 
-    const pendingPhotos: UploadedPhoto[] = validFiles.map((file, i) => ({
-      id: `upload_${Date.now()}_${i}`,
-      name: file.name,
-      url: URL.createObjectURL(file),
-      s3Key: "",
-      uploadedAt: new Date().toISOString().split("T")[0],
-      status: "uploading" as const,
-    }));
+    setIsUploading(true);
 
-    setUploadedPhotos((prev) => [...prev, ...pendingPhotos]);
+    let uploadSucceeded = false;
+    try {
+      // Upload and process all files at once
+      await uploadAndProcess(validFiles);
+      uploadSucceeded = true;
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert("Upload failed. Please try again.");
+    }
 
-    await Promise.allSettled(
-      validFiles.map(async (file, i) => {
-        const photoId = pendingPhotos[i].id;
+    // Always refresh the document list and radar (even if upload failed, to show current state)
+    try {
+      const [docs, radar] = await Promise.all([
+        getDocuments(),
+        getRadarEvents(30),
+      ]);
+      setDocuments(docs);
+      setRadarEvents(radar.events);
+    } catch (error) {
+      console.error("Failed to refresh documents:", error);
+      if (uploadSucceeded) {
+        // Upload worked but refresh failed - let user know to refresh manually
+        alert("Documents uploaded but failed to refresh. Please reload the page.");
+      }
+    }
 
-        try {
-          const res = await fetch("/api/uploads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              filename: file.name,
-              contentType: file.type,
-              fileSize: file.size,
-            }),
-          });
-
-          if (!res.ok) throw new Error(`Failed to get upload URL: ${res.status}`);
-
-          const { putUrl, getUrl, key } = await res.json();
-
-          const uploadRes = await fetch(putUrl, {
-            method: "PUT",
-            body: file,
-            headers: { "Content-Type": file.type },
-          });
-
-          if (!uploadRes.ok) throw new Error(`S3 upload failed: ${uploadRes.status}`);
-
-          await fetch("/api/uploads/confirm", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              s3Key: key,
-              filename: file.name,
-              contentType: file.type,
-            }),
-          });
-
-          setUploadedPhotos((prev) =>
-            prev.map((p) =>
-              p.id === photoId
-                ? { ...p, url: getUrl, s3Key: key, status: "uploaded" as const }
-                : p
-            )
-          );
-
-          URL.revokeObjectURL(pendingPhotos[i].url);
-        } catch (error) {
-          console.error(`Upload failed for ${file.name}:`, error);
-          setUploadedPhotos((prev) =>
-            prev.map((p) =>
-              p.id === photoId ? { ...p, status: "failed" as const } : p
-            )
-          );
+    // Poll for radar updates (5s interval, 6 polls = 30s total)
+    // Crawler runs in background after OCR completes
+    if (uploadSucceeded) {
+      let pollCount = 0;
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+        if (pollCount >= 6) {
+          clearInterval(pollInterval);
+          return;
         }
-      })
-    );
+        try {
+          const radar = await getRadarEvents(30);
+          setRadarEvents(radar.events);
+        } catch (e) {
+          // Silently ignore polling errors
+        }
+      }, 5000);
+    }
+
+    setIsUploading(false);
   }, []);
 
   // Filter documents by active filter types
@@ -178,7 +179,7 @@ export default function DashboardPage() {
     ? documents
     : documents.filter((doc) => activeFilters.has(doc.type as FilterType));
 
-  const hasContent = uploadedPhotos.length > 0 || documents.length > 0;
+  const hasContent = documents.length > 0;
 
   return (
     <div className="flex h-full">
@@ -188,30 +189,62 @@ export default function DashboardPage() {
       />
 
       <div className="flex flex-1 flex-col min-w-0">
-        <DashboardHeader onUploadClick={triggerUpload} />
+        <DashboardHeader onUploadClick={triggerUpload}>
+          {/* Select/Delete Controls */}
+          <div className="flex items-center gap-2">
+            {isSelectMode && selectedIds.size > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+                className="flex items-center gap-2 px-4 py-2 bg-error text-white rounded-lg hover:bg-error/90 transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                )}
+                Delete ({selectedIds.size})
+              </button>
+            )}
+            <button
+              onClick={toggleSelectMode}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                isSelectMode
+                  ? "bg-fg-secondary text-white"
+                  : "bg-bg-tertiary text-fg-secondary hover:bg-bg-tertiary/80"
+              }`}
+            >
+              {isSelectMode ? "Cancel" : "Select"}
+            </button>
+          </div>
+        </DashboardHeader>
 
         <main className="flex-1 overflow-auto p-8">
-          {/* Event Radar */}
-          <section className="mb-8">
-            <h2 className="text-display font-semibold text-fg-primary tracking-heading mb-4">
-              Event Radar
-            </h2>
-            <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2">
-              {documents.map((doc) => (
-                <button
-                  key={doc.id}
-                  onClick={() => setViewerDocId(doc.id)}
-                  className="flex-shrink-0 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent rounded-2xl"
-                >
-                  <EventCard
-                    date={doc.primaryDate}
-                    title={doc.primaryEntity}
-                    docRef={doc.id}
-                  />
-                </button>
-              ))}
-            </div>
-          </section>
+          {/* Event Radar - Only show if there are upcoming events */}
+          {radarEvents.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-display font-semibold text-fg-primary tracking-heading mb-4">
+                Event Radar
+              </h2>
+              <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2">
+                {radarEvents.map((event) => (
+                  <button
+                    key={event.id}
+                    onClick={() => setViewerDocId(event.id)}
+                    className="flex-shrink-0 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent rounded-2xl"
+                  >
+                    <EventCard
+                      date={event.date}
+                      title={event.primaryEntity}
+                      docRef={event.id}
+                    />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Main Content Area */}
           <section>
@@ -219,57 +252,39 @@ export default function DashboardPage() {
               Documents
             </h2>
 
-            {!hasContent ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-fg-secondary">Loading documents...</div>
+              </div>
+            ) : !hasContent ? (
               /* Empty State — large clickable upload box */
               <div className="rounded-2xl border-2 border-dashed border-bg-tertiary bg-bg-secondary/50 min-h-[400px] flex items-center justify-center">
                 <EmptyState onUpload={triggerUpload} />
               </div>
             ) : (
-              /* Photo Grid */
+              /* Document Grid */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Uploaded photos */}
-                {uploadedPhotos.map((photo) => (
-                  <article
-                    key={photo.id}
-                    className="group relative flex flex-col gap-3 rounded-2xl border border-bg-tertiary/50 bg-bg-secondary p-6 transition-colors duration-200 hover:border-bg-tertiary"
-                  >
-                    <div className="relative h-40 w-full overflow-hidden rounded-xl bg-bg-tertiary">
-                      <img
-                        src={photo.url}
-                        alt={photo.name}
-                        className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <span className="absolute top-2 right-2 rounded-md bg-fg-primary/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
-                        {photo.status === "uploading" ? "Uploading..." : photo.status === "failed" ? "Failed" : "Uploaded"}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-semibold text-fg-primary line-clamp-1" title={photo.name}>
-                        {photo.name}
-                      </h3>
-                      <span className="text-xs text-fg-tertiary">{photo.uploadedAt}</span>
-                    </div>
-                    <div className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-medium ${
-                      photo.status === "uploading" ? "text-info bg-info/10" :
-                      photo.status === "failed" ? "text-red-500 bg-red-500/10" :
-                      "text-green-500 bg-green-500/10"
-                    }`}>
-                      {photo.status === "uploading" ? "Uploading..." :
-                       photo.status === "failed" ? "Upload Failed" : "Processing"}
-                    </div>
-                  </article>
-                ))}
-
                 {filteredDocuments.map((doc) => (
                   <DocumentCard
                     key={doc.id}
                     {...doc}
                     onClick={() => setViewerDocId(doc.id)}
+                    isSelectMode={isSelectMode}
+                    isSelected={selectedIds.has(doc.id)}
+                    onSelect={handleSelectDocument}
                   />
                 ))}
               </div>
             )}
           </section>
+
+          {/* Upload Progress Indicator */}
+          {isUploading && (
+            <div className="fixed bottom-8 right-8 bg-bg-primary border border-bg-tertiary rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              <span className="text-fg-primary font-medium">Uploading & processing...</span>
+            </div>
+          )}
         </main>
       </div>
 
@@ -289,6 +304,7 @@ export default function DashboardPage() {
         <DocumentViewer
           documentId={viewerDocId}
           onClose={() => setViewerDocId(null)}
+          documents={documents}
         />
       )}
     </div>

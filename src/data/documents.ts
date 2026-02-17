@@ -11,7 +11,7 @@ export interface DocumentMetadata {
 
 export interface Document {
     id: string;
-    type: "Receipt" | "Subscription" | "Invoice" | "Fine" | "Form"; // Normalized types
+    type: "Receipt" | "Subscription" | "Invoice" | "Fine" | "Form" | "Other"; // Normalized types
     fileUrl: string;
     status: "Processing" | "Needs Review" | "Done";
 

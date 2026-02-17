@@ -8,8 +8,9 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { getSessionAction } from "@/lib/auth-actions";
+import { getSessionAction, getIdTokenAction } from "@/lib/auth-actions";
 import { useCookieConsent } from "@/lib/cookie-consent-context";
+import { setTokenGetter } from "@/lib/api-client";
 
 interface User {
   userId: string;
@@ -22,6 +23,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   checkAuth: () => Promise<void>;
+  getIdToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,6 +31,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   isLoading: true,
   checkAuth: async () => {},
+  getIdToken: async () => null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -51,6 +54,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const getIdToken = useCallback(async () => {
+    return getIdTokenAction();
+  }, []);
+
+  // Register token getter for api-client
+  useEffect(() => {
+    setTokenGetter(getIdToken);
+  }, [getIdToken]);
+
   useEffect(() => {
     if (hasConsented) {
       checkAuth();
@@ -61,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, isLoading, checkAuth }}
+      value={{ user, isAuthenticated: !!user, isLoading, checkAuth, getIdToken }}
     >
       {children}
     </AuthContext.Provider>

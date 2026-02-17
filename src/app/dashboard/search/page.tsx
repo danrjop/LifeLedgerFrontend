@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import SearchHeader from "@/components/search/SearchHeader";
 import AIAnswerBox from "@/components/search/AIAnswerBox";
 import EvidenceSection from "@/components/search/EvidenceSection";
 import DocumentViewer from "@/components/ui/DocumentViewer";
-import { documents } from "@/data/documents";
-import { searchDocuments, getMockAnswer } from "@/lib/search-utils";
+import { searchDocuments, type Document } from "@/lib/api-client";
 
 function SearchResults() {
   const searchParams = useSearchParams();
@@ -16,15 +15,32 @@ function SearchResults() {
 
   const [phase, setPhase] = useState<"thinking" | "answering" | "done">("thinking");
   const [viewerDocId, setViewerDocId] = useState<string | null>(null);
+  const [results, setResults] = useState<Document[]>([]);
+  const [answer, setAnswer] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
-  const results = useMemo(() => searchDocuments(query, documents), [query]);
-  const mockAnswer = useMemo(() => getMockAnswer(query), [query]);
-
-  // Simulate thinking → answering transition
+  // Fetch search results from API
   useEffect(() => {
+    if (!query) {
+      setResults([]);
+      setAnswer("");
+      return;
+    }
+
     setPhase("thinking");
-    const timer = setTimeout(() => setPhase("answering"), 2000);
-    return () => clearTimeout(timer);
+    setError(null);
+
+    searchDocuments(query)
+      .then((result) => {
+        setResults(result.documents);
+        setAnswer(result.answer);
+        setPhase("answering");
+      })
+      .catch((err) => {
+        console.error("Search failed:", err);
+        setError("Search failed. Please try again.");
+        setPhase("done");
+      });
   }, [query]);
 
   const handleDone = useCallback(() => setPhase("done"), []);
@@ -39,17 +55,26 @@ function SearchResults() {
       />
 
       <main className="flex-1 overflow-auto p-8">
-        <AIAnswerBox phase={phase} answer={mockAnswer} onDone={handleDone} />
-        <EvidenceSection
-          documents={results}
-          onDocumentClick={(id) => setViewerDocId(id)}
-        />
+        {error ? (
+          <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-red-400">
+            {error}
+          </div>
+        ) : (
+          <>
+            <AIAnswerBox phase={phase} answer={answer} onDone={handleDone} />
+            <EvidenceSection
+              documents={results}
+              onDocumentClick={(id) => setViewerDocId(id)}
+            />
+          </>
+        )}
       </main>
 
       {viewerDocId && (
         <DocumentViewer
           documentId={viewerDocId}
           onClose={() => setViewerDocId(null)}
+          documents={results}
         />
       )}
     </div>
