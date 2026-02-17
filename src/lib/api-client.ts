@@ -54,7 +54,7 @@ export interface UploadAndProcessResponse {
   message: string;
 }
 
-export type DocumentType = "Receipt" | "Subscription" | "Invoice" | "Fine" | "Form";
+export type DocumentType = "Receipt" | "Subscription" | "Invoice" | "Fine" | "Form" | "Other";
 export type StatusType = "Processing" | "Needs Review" | "Done";
 
 export interface Document {

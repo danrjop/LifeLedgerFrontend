@@ -150,9 +150,28 @@ export default function DashboardPage() {
         // Upload worked but refresh failed - let user know to refresh manually
         alert("Documents uploaded but failed to refresh. Please reload the page.");
       }
-    } finally {
-      setIsUploading(false);
     }
+
+    // Poll for radar updates (5s interval, 6 polls = 30s total)
+    // Crawler runs in background after OCR completes
+    if (uploadSucceeded) {
+      let pollCount = 0;
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+        if (pollCount >= 6) {
+          clearInterval(pollInterval);
+          return;
+        }
+        try {
+          const radar = await getRadarEvents(30);
+          setRadarEvents(radar.events);
+        } catch (e) {
+          // Silently ignore polling errors
+        }
+      }, 5000);
+    }
+
+    setIsUploading(false);
   }, []);
 
   // Filter documents by active filter types

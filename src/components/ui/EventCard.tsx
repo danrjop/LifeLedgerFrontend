@@ -6,9 +6,10 @@ interface EventCardProps {
 
 export default function EventCard({ date, title, docRef }: EventCardProps) {
     // Parse date for nicer display (e.g., "FEB 12")
+    // Use UTC to display date as stored, avoiding local timezone conversion
     const dateObj = new Date(date);
-    const month = dateObj.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-    const day = dateObj.toLocaleString('en-US', { day: 'numeric' });
+    const month = dateObj.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+    const day = dateObj.toLocaleString('en-US', { day: 'numeric', timeZone: 'UTC' });
 
     return (
         <div className="group relative flex w-60 flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-bg-secondary border border-bg-tertiary/50 transition-all duration-200 hover:-translate-y-1 hover:border-bg-tertiary">

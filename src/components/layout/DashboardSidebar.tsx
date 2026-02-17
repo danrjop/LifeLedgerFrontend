@@ -4,12 +4,13 @@ import Link from "next/link";
 import { signOutAction } from "@/lib/auth-actions";
 import { useRouter, usePathname } from "next/navigation";
 
-export type FilterType = "Receipt" | "Subscription" | "Form";
+export type FilterType = "Receipt" | "Subscription" | "Form" | "Other";
 
 const FILTERS: { type: FilterType; label: string }[] = [
   { type: "Receipt", label: "Receipts" },
   { type: "Subscription", label: "Subscriptions" },
   { type: "Form", label: "Forms" },
+  { type: "Other", label: "Other" },
 ];
 
 interface DashboardSidebarProps {
